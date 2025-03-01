@@ -8,6 +8,7 @@ import java.util.Base64;
 public class SecretKeyGenerator {
     public static String generateSecretKey() {
         Key key = Keys.secretKeyFor(io.jsonwebtoken.SignatureAlgorithm.HS256);
-        return Base64.getEncoder().encodeToString(key.getEncoded());
+        // Use URL-safe Base64 encoding
+        return Base64.getUrlEncoder().encodeToString(key.getEncoded());
     }
 }

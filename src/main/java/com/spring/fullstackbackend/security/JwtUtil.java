@@ -1,59 +1,62 @@
 package com.spring.fullstackbackend.security;
 
-import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.security.Keys;
 import org.springframework.stereotype.Component;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.security.Key;
 import java.util.Date;
-import java.util.function.Function;
 
 @Component
 public class JwtUtil {
 
-    private static final String SECRET_KEY_FILE = "secret-key.txt"; // Same file as in main app
+    private static Key secretKey;
 
-    private String getSecretKey() {
-        try {
-            return Files.readString(Path.of(SECRET_KEY_FILE)).trim();
-        } catch (IOException e) {
-            throw new RuntimeException("Secret key file not found! Ensure it's generated.", e);
-        }
+    static {
+        // Generate a new secure key when the class is loaded
+        secretKey = Keys.secretKeyFor(SignatureAlgorithm.HS256);
     }
 
     public String generateToken(String username) {
         return Jwts.builder()
                 .setSubject(username)
-                .setIssuedAt(new Date(System.currentTimeMillis()))
-                .setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 10)) // 10 hours
-                .signWith(SignatureAlgorithm.HS256, getSecretKey()) // Use stored secret key
+                .setIssuedAt(new Date())
+                .setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 60)) // 1 hour expiration
+                .signWith(secretKey)
                 .compact();
-    }
-
-    public boolean validateToken(String token, String username) {
-        return extractUsername(token).equals(username) && !isTokenExpired(token);
     }
 
     public String extractUsername(String token) {
         return extractClaim(token, Claims::getSubject);
     }
 
-    public Date extractExpiration(String token) {
+    // Extracts a claim from the token (like username)
+    public <T> T extractClaim(String token, ClaimsResolver<T> claimsResolver) {
+        final Claims claims = extractAllClaims(token);
+        return claimsResolver.resolve(claims);
+    }
+
+    // Extracts all claims from the token
+    private Claims extractAllClaims(String token) {
+        return Jwts.parserBuilder()
+                .setSigningKey(secretKey) // Use the dynamically generated key
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+    }
+
+    public boolean isTokenExpired(String token) {
+        return extractExpiration(token).before(new Date());
+    }
+
+    private Date extractExpiration(String token) {
         return extractClaim(token, Claims::getExpiration);
     }
 
-    private <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
-        Claims claims = Jwts.parser()
-                .setSigningKey(getSecretKey())
-                .parseClaimsJws(token)
-                .getBody();
-        return claimsResolver.apply(claims);
-    }
-
-    private boolean isTokenExpired(String token) {
-        return extractExpiration(token).before(new Date());
+    @FunctionalInterface
+    public interface ClaimsResolver<T> {
+        T resolve(Claims claims);
     }
 }

@@ -4,6 +4,7 @@ import com.spring.fullstackbackend.model.User;
 import com.spring.fullstackbackend.repository.UserRepository;
 import com.spring.fullstackbackend.security.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -13,6 +14,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -35,21 +37,20 @@ public class UserController {
 
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody Map<String, String> request) {
+    public ResponseEntity<Map<String, String>> login(@RequestBody Map<String, String> request) {
         String username = request.get("username");
         String password = request.get("password");
 
-        // Authenticate user
         authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(username, password));
 
-        // Generate JWT Token
         UserDetails userDetails = userDetailsService.loadUserByUsername(username);
         String token = jwtUtil.generateToken(userDetails.getUsername());
 
-        // Return token in response
-        return ResponseEntity.ok(Map.of("token", token));
-    }
+        Map<String, String> response = new HashMap<>();
+        response.put("token", token);
 
+        return ResponseEntity.ok(response);
+    }
 
 
     @Autowired
@@ -58,10 +59,12 @@ public class UserController {
 
 
     @PostMapping("/register")
-    public User registerUser(@RequestBody User newUser) {
+    public ResponseEntity<?> registerUser(@RequestBody User newUser) {
         newUser.setPassword(passwordEncoder.encode(newUser.getPassword())); // Encrypt password
-        return userRepository.save(newUser);
+        userRepository.save(newUser);
+        return ResponseEntity.status(HttpStatus.CREATED).body("User registered successfully");
     }
+
 
     @GetMapping
     public List<User> getAllUsers() {
