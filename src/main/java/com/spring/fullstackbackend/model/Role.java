@@ -1,5 +1,6 @@
 package com.spring.fullstackbackend.model;
 
 public enum Role {
-    EMPLOYEE, ADMIN;
+    ROLE_USER,
+    ROLE_ADMIN
 }

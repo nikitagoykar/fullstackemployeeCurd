@@ -3,49 +3,40 @@ package com.spring.fullstackbackend.controller;
 import com.spring.fullstackbackend.model.User;
 import com.spring.fullstackbackend.repository.UserRepository;
 import com.spring.fullstackbackend.security.JwtUtil;
-import jakarta.servlet.http.Cookie;
-import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.web.bind.annotation.*;
 
-
+import java.util.HashMap;
+import java.util.Map;
 
 @RestController
-@RequestMapping("/auth")
+@RequestMapping("/users")
 public class AuthController {
 
-    @Autowired
-    private AuthenticationManager authenticationManager;
+    private final AuthenticationManager authenticationManager;
+    private final JwtUtil jwtUtil;
+    private final UserRepository userRepository;
 
-    @Autowired
-    private JwtUtil jwtUtil;
-
-    @Autowired
-    private UserDetailsService userDetailsService;
-
-    @Autowired
-    private UserRepository userRepository;
+    public AuthController(AuthenticationManager authenticationManager, JwtUtil jwtUtil, UserRepository userRepository) {
+        this.authenticationManager = authenticationManager;
+        this.jwtUtil = jwtUtil;
+        this.userRepository = userRepository;
+    }
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody User loginRequest, HttpServletResponse response) {
+    public Map<String, String> login(@RequestBody User loginRequest) {
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(loginRequest.getUsername(), loginRequest.getPassword())
         );
 
-        UserDetails userDetails = userDetailsService.loadUserByUsername(loginRequest.getUsername());
-        String token = jwtUtil.generateToken(userDetails.getUsername());
+        User user = userRepository.findByUsername(loginRequest.getUsername()).orElseThrow();
+        String token = jwtUtil.generateToken(user.getUsername(), user.getRole());
 
-        // Store JWT in HTTP-only cookie for security
-        Cookie cookie = new Cookie("jwt", token);
-        cookie.setHttpOnly(true);
-        cookie.setPath("/");
-        response.addCookie(cookie);
+        Map<String, String> response = new HashMap<>();
+        response.put("token", token);
+        response.put("role", user.getRole().name()); // Include role in response
 
-        return ResponseEntity.ok("Login successful!");
+        return response;
     }
 }

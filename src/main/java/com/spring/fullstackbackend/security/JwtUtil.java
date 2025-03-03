@@ -1,62 +1,58 @@
 package com.spring.fullstackbackend.security;
 
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.stereotype.Component;
+import com.spring.fullstackbackend.model.Role;
 
 import java.security.Key;
+import java.util.Base64;
 import java.util.Date;
 
 @Component
 public class JwtUtil {
 
-    private static Key secretKey;
+    private final Key secretKey;
 
-    static {
-        // Generate a new secure key when the class is loaded
-        secretKey = Keys.secretKeyFor(SignatureAlgorithm.HS256);
+    // Constructor: Generate a secure key at runtime
+    public JwtUtil() {
+        this.secretKey = Keys.secretKeyFor(SignatureAlgorithm.HS256);
+        System.out.println("Generated JWT Secret Key (Base64): " + Base64.getEncoder().encodeToString(secretKey.getEncoded()));
     }
 
-    public String generateToken(String username) {
+    private long EXPIRATION_TIME = 1000 * 60 * 60; // 1 hour
+
+    public String generateToken(String username, Role role) {
         return Jwts.builder()
                 .setSubject(username)
+                .claim("role", role.name()) // Store role inside JWT
                 .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 60)) // 1 hour expiration
-                .signWith(secretKey)
+                .setExpiration(new Date(System.currentTimeMillis() + EXPIRATION_TIME)) // 1-hour expiry
+                .signWith(secretKey, SignatureAlgorithm.HS256)
                 .compact();
     }
 
     public String extractUsername(String token) {
-        return extractClaim(token, Claims::getSubject);
+        return extractAllClaims(token).getSubject();
     }
 
-    // Extracts a claim from the token (like username)
-    public <T> T extractClaim(String token, ClaimsResolver<T> claimsResolver) {
-        final Claims claims = extractAllClaims(token);
-        return claimsResolver.resolve(claims);
+    public String extractRole(String token) {
+        return extractAllClaims(token).get("role", String.class);
     }
 
-    // Extracts all claims from the token
     private Claims extractAllClaims(String token) {
         return Jwts.parserBuilder()
-                .setSigningKey(secretKey) // Use the dynamically generated key
+                .setSigningKey(secretKey)
                 .build()
                 .parseClaimsJws(token)
                 .getBody();
     }
 
-    public boolean isTokenExpired(String token) {
-        return extractExpiration(token).before(new Date());
+    public boolean isTokenValid(String token, String username) {
+        return extractUsername(token).equals(username) && !isTokenExpired(token);
     }
 
-    private Date extractExpiration(String token) {
-        return extractClaim(token, Claims::getExpiration);
-    }
-
-    @FunctionalInterface
-    public interface ClaimsResolver<T> {
-        T resolve(Claims claims);
+    private boolean isTokenExpired(String token) {
+        return extractAllClaims(token).getExpiration().before(new Date());
     }
 }
