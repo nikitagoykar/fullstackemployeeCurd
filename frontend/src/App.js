@@ -1,26 +1,22 @@
-import "./App.css";
-import "../node_modules/bootstrap/dist/css/bootstrap.min.css";
-import Navbar from "./layout/navbar";
-import Home from "./pages/Home";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import AddUser from "./users/AddUser";
-import EditUser from "./users/EditUser";
-import ViewUser from "./users/ViewUser";
+import React from 'react';
+import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';  // Updated imports
+import Login from './components/Auth/Login';
+import AdminDashboard from './components/Dashboard/AdminDashboard';
+import EmployeeDashboard from './components/Dashboard/EmployeeDashboard';
+import ProtectedRoute from './components/ProtectedRoute';
+// Import Login component
 
-function App() {
+const App = () => {
   return (
-    <div className="App">
-      <Router>
-        <Navbar />
-        <Routes>
-          <Route exact path="/" element={<Home />} />
-          <Route exact path="/adduser" element={<AddUser />} />
-          <Route exit path="/edituser/:id" element={<EditUser/>}/>
-          <Route exact path="/viewuser/:id" element={<ViewUser />} />
-        </Routes>
-      </Router>
-    </div>
+    <Router>
+      <Routes> {/* Use Routes instead of Switch */}
+        <Route path="/login" element={<Login />} />  {/* Route for Login */}
+        <Route path="/admin-dashboard" element={<ProtectedRoute role="ROLE_ADMIN"><AdminDashboard /></ProtectedRoute>} />
+                <Route path="/employee-dashboard" element={<ProtectedRoute role="ROLE_USER"><EmployeeDashboard /></ProtectedRoute>} />
+        {/* Add other routes as needed */}
+      </Routes>
+    </Router>
   );
-}
+};
 
 export default App;

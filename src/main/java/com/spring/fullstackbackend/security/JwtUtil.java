@@ -2,57 +2,54 @@ package com.spring.fullstackbackend.security;
 
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
-import com.spring.fullstackbackend.model.Role;
 
-import java.security.Key;
+import javax.crypto.KeyGenerator;
+import javax.crypto.SecretKey;
+import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
 import java.util.Date;
 
-@Component
+import io.jsonwebtoken.*;
+import io.jsonwebtoken.security.Keys;
+import org.springframework.stereotype.Component;
+
+import java.security.Key;
+import java.util.Date;
+
+@Component // ✅ Ensures Spring Boot manages this as a bean
 public class JwtUtil {
 
     private final Key secretKey;
 
-    // Constructor: Generate a secure key at runtime
+    // ✅ Correctly generates a valid HMAC SHA key
     public JwtUtil() {
-        this.secretKey = Keys.secretKeyFor(SignatureAlgorithm.HS256);
-        System.out.println("Generated JWT Secret Key (Base64): " + Base64.getEncoder().encodeToString(secretKey.getEncoded()));
+        this.secretKey = Keys.hmacShaKeyFor(io.jsonwebtoken.io.Decoders.BASE64.decode("your-256-bit-secret"));
     }
 
-    private long EXPIRATION_TIME = 1000 * 60 * 60; // 1 hour
-
-    public String generateToken(String username, Role role) {
+    public String generateToken(String username, String role) {
         return Jwts.builder()
                 .setSubject(username)
-                .claim("role", role.name()) // Store role inside JWT
+                .claim("role", role)
                 .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + EXPIRATION_TIME)) // 1-hour expiry
-                .signWith(secretKey, SignatureAlgorithm.HS256)
+                .setExpiration(new Date(System.currentTimeMillis() + 3600000)) // 1 hour expiration
+                .signWith(secretKey, SignatureAlgorithm.HS256) // ✅ Correct algorithm
                 .compact();
     }
 
     public String extractUsername(String token) {
-        return extractAllClaims(token).getSubject();
+        return Jwts.parserBuilder().setSigningKey(secretKey).build()
+                .parseClaimsJws(token).getBody().getSubject();
     }
 
-    public String extractRole(String token) {
-        return extractAllClaims(token).get("role", String.class);
-    }
-
-    private Claims extractAllClaims(String token) {
-        return Jwts.parserBuilder()
-                .setSigningKey(secretKey)
-                .build()
-                .parseClaimsJws(token)
-                .getBody();
-    }
-
-    public boolean isTokenValid(String token, String username) {
-        return extractUsername(token).equals(username) && !isTokenExpired(token);
-    }
-
-    private boolean isTokenExpired(String token) {
-        return extractAllClaims(token).getExpiration().before(new Date());
+    public boolean isTokenValid(String token) {
+        try {
+            Jwts.parserBuilder().setSigningKey(secretKey).build().parseClaimsJws(token);
+            return true;
+        } catch (JwtException | IllegalArgumentException e) {
+            return false;
+        }
     }
 }

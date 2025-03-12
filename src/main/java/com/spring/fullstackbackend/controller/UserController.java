@@ -61,16 +61,18 @@ public class UserController {
 
     //  REGISTER - Assign Default Role (USER)
     @PostMapping("/register")
-    public ResponseEntity<?> registerUser(@RequestBody User newUser) {
-        if (userRepository.findByUsername(newUser.getUsername()).isPresent()) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Username already exists");
+    public ResponseEntity<?> register(@RequestBody User user) {
+        if (userRepository.findByEmail(user.getEmail()).isPresent()) {
+            return ResponseEntity.badRequest().body("Error: Email is already taken!");
         }
 
-        newUser.setPassword(passwordEncoder.encode(newUser.getPassword())); // Encrypt password
-        newUser.setRole(Role.ROLE_USER); //  FIXED: Assign default USER role
-        userRepository.save(newUser);
+        user.setPassword(passwordEncoder.encode(user.getPassword())); // Encrypt password
+        userRepository.save(user);
 
-        return ResponseEntity.status(HttpStatus.CREATED).body("User registered successfully");
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "User registered successfully");
+
+        return ResponseEntity.ok(response);
     }
 
     //  ONLY ADMIN CAN VIEW ALL USERS

@@ -6,7 +6,6 @@ plugins {
 
 group = 'com.spring'
 version = '0.0.1-SNAPSHOT'
-
 java {
 	sourceCompatibility = '17'
 }
@@ -29,8 +28,22 @@ dependencies {
 	// Password Encoding (BCrypt)
 	implementation 'org.springframework.security:spring-security-crypto'
 
+	// Lombok (Reduces Boilerplate)
+	implementation 'org.projectlombok:lombok'
+	annotationProcessor 'org.projectlombok:lombok'
+	testAnnotationProcessor 'org.projectlombok:lombok'
+
 	// MySQL Driver
 	runtimeOnly 'com.mysql:mysql-connector-j'
+
+	// H2 Database (For Testing)
+	testImplementation 'com.h2database:h2'
+
+	// Validation for DTOs
+	implementation 'org.springframework.boot:spring-boot-starter-validation'
+
+	// Developer Tools
+	developmentOnly 'org.springframework.boot:spring-boot-devtools'
 
 	// Testing
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
