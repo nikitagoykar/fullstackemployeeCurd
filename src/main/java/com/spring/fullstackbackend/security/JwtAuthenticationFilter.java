@@ -1,56 +1,55 @@
 package com.spring.fullstackbackend.security;
 
+import com.spring.fullstackbackend.service.UserDetailsServiceImpl;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.stereotype.Component;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.userdetails.User;
+
 import java.io.IOException;
-import java.util.Collections;
-import java.util.List;
 
+@Component  // ✅ Ensures it's detected as a Spring Bean
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
-
     private final JwtUtil jwtUtil;
-//    private final UserDetailsService userDetailsService;
+    private final UserDetailsService userDetailsService;
 
-    // Constructor to initialize jwtUtil and userDetailsService
-    @Autowired
-    public JwtAuthenticationFilter(JwtUtil jwtUtil) {
+    public JwtAuthenticationFilter(JwtUtil jwtUtil, UserDetailsServiceImpl userDetailsService) {
         this.jwtUtil = jwtUtil;
-//        this.userDetailsService = userDetailsService;
+        this.userDetailsService = userDetailsService;
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
-        String token = extractToken(request);
-
-        if (token != null && jwtUtil.isTokenValid(token, jwtUtil.extractUsername(token))) {
-            String role = jwtUtil.extractRole(token);
-            List<SimpleGrantedAuthority> authorities = role != null ?
-                    Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + role)) :
-                    Collections.emptyList();
-
-            UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                    jwtUtil.extractUsername(token), null, authorities);
-            SecurityContextHolder.getContext().setAuthentication(authentication);
-
-            System.out.println("Token valid for user: " + jwtUtil.extractUsername(token));
-        }
-
-        filterChain.doFilter(request, response);
-    }
-
-    private String extractToken(HttpServletRequest request) {
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
+            throws ServletException, IOException {
         String authHeader = request.getHeader("Authorization");
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            return authHeader.substring(7); // Extract the token
+
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            chain.doFilter(request, response);
+            return;
         }
-        return null;
+
+        String token = authHeader.substring(7);
+        String username = jwtUtil.extractUsername(token);
+
+        if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+            UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+
+            if (jwtUtil.isTokenValid(token, username)) {
+                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+                        userDetails, null, userDetails.getAuthorities()
+                );
+                SecurityContextHolder.getContext().setAuthentication(authentication);
+            }
+        }
+
+        chain.doFilter(request, response);
     }
 }

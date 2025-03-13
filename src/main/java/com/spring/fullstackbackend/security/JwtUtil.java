@@ -2,54 +2,59 @@ package com.spring.fullstackbackend.security;
 
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.stereotype.Component;
-
-import javax.crypto.KeyGenerator;
-import javax.crypto.SecretKey;
-import java.security.NoSuchAlgorithmException;
-import java.util.Base64;
-import java.util.Date;
-
-import io.jsonwebtoken.*;
-import io.jsonwebtoken.security.Keys;
 import org.springframework.stereotype.Component;
 
 import java.security.Key;
+import java.util.Base64;
 import java.util.Date;
+import java.util.function.Function;
 
-@Component // ✅ Ensures Spring Boot manages this as a bean
+@Component
 public class JwtUtil {
+    private static final Key SECRET_KEY = Keys.secretKeyFor(SignatureAlgorithm.HS256); // Auto-generated key
 
-    private final Key secretKey;
-
-    // ✅ Correctly generates a valid HMAC SHA key
-    public JwtUtil() {
-        this.secretKey = Keys.hmacShaKeyFor(io.jsonwebtoken.io.Decoders.BASE64.decode("your-256-bit-secret"));
+    public static String getSecretKey() {
+        return Base64.getEncoder().encodeToString(SECRET_KEY.getEncoded()); // Convert to Base64
     }
 
-    public String generateToken(String username, String role) {
+    private static final long ACCESS_TOKEN_EXPIRATION = 1000 * 60 * 15; // 15 minutes
+    private static final long REFRESH_TOKEN_EXPIRATION = 1000 * 60 * 60 * 24; // 24 hours
+
+    public String generateAccessToken(String username) {
+        return createToken(username, ACCESS_TOKEN_EXPIRATION);
+    }
+
+    public String generateRefreshToken(String username) {
+        return createToken(username, REFRESH_TOKEN_EXPIRATION);
+    }
+
+    private String createToken(String username, long expiration) {
         return Jwts.builder()
                 .setSubject(username)
-                .claim("role", role)
                 .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + 3600000)) // 1 hour expiration
-                .signWith(secretKey, SignatureAlgorithm.HS256) // ✅ Correct algorithm
+                .setExpiration(new Date(System.currentTimeMillis() + expiration))
+                .signWith(SECRET_KEY, SignatureAlgorithm.HS256) // ✅ Corrected
                 .compact();
     }
 
     public String extractUsername(String token) {
-        return Jwts.parserBuilder().setSigningKey(secretKey).build()
-                .parseClaimsJws(token).getBody().getSubject();
+        return extractClaim(token, Claims::getSubject);
     }
 
-    public boolean isTokenValid(String token) {
-        try {
-            Jwts.parserBuilder().setSigningKey(secretKey).build().parseClaimsJws(token);
-            return true;
-        } catch (JwtException | IllegalArgumentException e) {
-            return false;
-        }
+    public boolean isTokenValid(String token, String username) {
+        return username.equals(extractUsername(token)) && !isTokenExpired(token);
+    }
+
+    private boolean isTokenExpired(String token) {
+        return extractClaim(token, Claims::getExpiration).before(new Date());
+    }
+
+    private <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
+        final Claims claims = Jwts.parserBuilder() // ✅ Corrected Key Parsing
+                .setSigningKey(SECRET_KEY)
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+        return claimsResolver.apply(claims);
     }
 }

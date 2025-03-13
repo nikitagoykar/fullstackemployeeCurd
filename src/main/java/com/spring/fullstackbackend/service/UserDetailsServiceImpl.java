@@ -6,12 +6,11 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
-import lombok.extern.slf4j.Slf4j;
+
+import java.util.Optional;
 
 @Service
-@Slf4j
 public class UserDetailsServiceImpl implements UserDetailsService {
-
     private final UserRepository userRepository;
 
     public UserDetailsServiceImpl(UserRepository userRepository) {
@@ -20,8 +19,11 @@ public class UserDetailsServiceImpl implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));
+        Optional<User> user = userRepository.findByEmail(email);  // Find by email instead of username
+        if (user.isEmpty()) {
+            throw new UsernameNotFoundException("User not found");
+        }
 
-        return new UserDetailsImpl(user);
-    }}
+        return new UserDetailsImpl(user.get());  // Return the custom UserDetailsImpl instead of UserDetailsServiceImpl
+    }
+}

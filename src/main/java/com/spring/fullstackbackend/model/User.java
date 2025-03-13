@@ -1,7 +1,9 @@
 package com.spring.fullstackbackend.model;
 
-
 import jakarta.persistence.*;
+import java.util.Collections;
+import java.util.List;
+import java.util.Set;
 
 @Entity
 @Table(name = "users")
@@ -22,7 +24,7 @@ public class User {
     @Enumerated(EnumType.STRING)
     private Role role;
 
-    // Getters and setters
+    // Getters and Setters
     public Long getId() {
         return id;
     }
@@ -70,6 +72,14 @@ public class User {
     public void setRole(Role role) {
         this.role = role;
     }
+
+    // Fix for getRoles()
+    @ElementCollection(fetch = FetchType.EAGER)
+    @Enumerated(EnumType.STRING)
+    private Set<Role> roles;
+
+    public List<String> getRoles() {
+        return roles.stream().map(Enum::name).toList();
+    }
+
 }
-
-
