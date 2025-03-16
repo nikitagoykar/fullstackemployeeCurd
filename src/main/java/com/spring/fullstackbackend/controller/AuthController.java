@@ -8,10 +8,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -29,20 +31,23 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public JwtResponse login(@RequestBody JwtRequest jwtRequest) {
-        // Authenticate user using email and password from request
+    public JwtResponse login(@RequestBody JwtRequest request) {
         Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(jwtRequest.getEmail(), jwtRequest.getPassword())
+                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
         );
 
-        if (authentication.isAuthenticated()) {
-            // Generate JWT Token after successful authentication
-            String token = jwtUtil.generateAccessToken(jwtRequest.getEmail());
-            return new JwtResponse(token);  // Return token wrapped in JwtResponse
-        } else {
-            throw new RuntimeException("Authentication failed");
-        }
+        UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+        List<String> roles = userDetails.getAuthorities()
+                .stream()
+                .map(grantedAuthority -> grantedAuthority.getAuthority().replace("ROLE_", "")) // Remove "ROLE_" prefix
+                .toList();
+
+        String accessToken = jwtUtil.generateAccessToken(userDetails.getUsername(), roles);
+        String refreshToken = jwtUtil.generateRefreshToken(userDetails.getUsername());
+
+        return new JwtResponse(accessToken, refreshToken);
     }
+
 
     @PostMapping("/refresh")
     public Map<String, String> refreshAccessToken(@RequestBody Map<String, String> request) {
@@ -50,7 +55,7 @@ public class AuthController {
         String username = jwtUtil.extractUsername(refreshToken);
 
         if (jwtUtil.isTokenValid(refreshToken, username)) {
-            String newAccessToken = jwtUtil.generateAccessToken(username);
+            String newAccessToken = jwtUtil.generateAccessToken(username, List.of());
 
             Map<String, String> response = new HashMap<>();
             response.put("accessToken", newAccessToken);
